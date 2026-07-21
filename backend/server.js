@@ -41,7 +41,8 @@ const EXAMS = [
   { id: 'lsat', name: 'LSAT', category: 'US Standardized Tests', icon: '⚖️', description: 'Law school, logic games + reasoning', topics: ['Logic Games', 'Logical Reasoning', 'Reading Comprehension'], questionTypes: ['multiple_choice'], supportsMockInterview: false, supportsEssayGrading: true },
   { id: 'gre', name: 'GRE', category: 'US Standardized Tests', icon: '🎓', description: 'Grad school, verbal + quant + writing', topics: ['Verbal Reasoning', 'Quantitative Reasoning', 'Analytical Writing'], questionTypes: ['multiple_choice', 'essay'], supportsMockInterview: false, supportsEssayGrading: true },
   { id: 'gmat', name: 'GMAT', category: 'US Standardized Tests', icon: '📊', description: 'Business school', topics: ['Data Insights', 'Quantitative', 'Verbal'], questionTypes: ['multiple_choice'], supportsMockInterview: false, supportsEssayGrading: false },
-  { id: 'nclex', name: 'NCLEX', category: 'US Standardized Tests', icon: '🏥', description: 'Nursing license exam', topics: ['Pharmacology', 'Medical-Surgical', 'Maternal Newborn', 'Pediatrics', 'Mental Health', 'Leadership'], questionTypes: ['multiple_choice'], supportsMockInterview: false, supportsEssayGrading: false },
+  { id: 'nclex', name: 'NCLEX', category: 'Medical & Nursing', icon: '🏥', description: 'Nursing license exam — Next Generation NCLEX (NGN) format', topics: ['Pharmacology', 'Medical-Surgical', 'Maternal Newborn', 'Pediatrics', 'Mental Health', 'Leadership'], questionTypes: ['multiple_choice'], supportsMockInterview: false, supportsEssayGrading: false },
+  { id: 'usmle1', name: 'USMLE Step 1', category: 'Medical & Nursing', icon: '🩺', description: 'US Medical License - Basic Sciences', topics: ['Pathology', 'Pharmacology', 'Physiology', 'Biochemistry', 'Microbiology', 'Anatomy'], questionTypes: ['multiple_choice'], supportsMockInterview: false, supportsEssayGrading: false },
   { id: 'mckinsey', name: 'McKinsey/BCG Case', category: 'Career Interviews', icon: '💼', description: 'AI plays interviewer, real case simulation', topics: ['Market Sizing', 'Profitability', 'Market Entry', 'M&A', 'Operations'], questionTypes: ['interview'], supportsMockInterview: true, supportsEssayGrading: false },
   { id: 'ib', name: 'Investment Banking', category: 'Career Interviews', icon: '🏦', description: 'DCF, LBO, valuation Q&A', topics: ['DCF Valuation', 'LBO Model', 'Comparable Analysis', 'M&A Concepts', 'Technical Questions'], questionTypes: ['multiple_choice', 'open_answer'], supportsMockInterview: true, supportsEssayGrading: false },
   { id: 'coding', name: 'Google/Meta Coding', category: 'Career Interviews', icon: '💻', description: 'LeetCode-style with AI explanation', topics: ['Arrays', 'Strings', 'Trees', 'Dynamic Programming', 'System Design'], questionTypes: ['coding'], supportsMockInterview: true, supportsEssayGrading: false },
@@ -86,7 +87,42 @@ function buildSystemPrompt(exam_type, topic, difficulty) {
     case 'gmat':
       return `You are a GMAT expert. Generate a practice question.\nSection: ${topic}, Difficulty: ${difficulty}\nReturn ONLY valid JSON (no markdown): {"question": "...", "options": {"A":"...","B":"...","C":"...","D":"...","E":"..."}, "correct_answer": "A", "explanation": "...", "strategy": "..."}`;
     case 'nclex':
-      return `You are an NCLEX expert. Generate a realistic NCLEX-style clinical question.\nTopic: ${topic}, Difficulty: ${difficulty}\nReturn ONLY valid JSON (no markdown): {"scenario": "...", "question": "...", "options": {"A":"...","B":"...","C":"...","D":"..."}, "correct": "A", "rationales": {"A":"...","B":"...","C":"...","D":"..."}, "nursing_concept": "..."}`;
+      return `You are an expert NCLEX-RN question writer trained on the 2023 Next Generation NCLEX (NGN) format.
+Generate a realistic clinical scenario question following NCSBN Clinical Judgment Model.
+
+CRITICAL RULES:
+1. Always use a realistic clinical scenario (patient name, age, diagnosis, vitals, context)
+2. Use the NGN format: clinical scenario → focused question → 4 options
+3. Distractors must be plausible but wrong for a specific reason
+4. Cover the 6 cognitive skills: Recognize Cues, Analyze Cues, Prioritize Hypotheses, Generate Solutions, Take Action, Evaluate Outcomes
+5. Include rationale for ALL 4 options (why correct AND why each wrong option is wrong)
+6. Topics rotate through: Pharmacology, Med-Surg, Maternal-Newborn, Pediatrics, Mental Health, Leadership/Management
+
+For difficulty levels:
+- Beginner: single-system, straightforward priority
+- Intermediate: multi-system, requires analysis
+- Advanced: complex clinical judgment, safety-critical
+
+Topic: ${topic}, Difficulty: ${difficulty}
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{"scenario": "68-year-old male admitted with...", "question": "Which action should the nurse take FIRST?", "options": {"A": "...", "B": "...", "C": "...", "D": "..."}, "correct": "C", "rationales": {"A": "Incorrect because...", "B": "Incorrect because...", "C": "CORRECT: This is the priority because...", "D": "Incorrect because..."}, "nursing_concept": "Airway/Breathing/Circulation priority", "cognitive_skill": "Prioritize Hypotheses"}`;
+    case 'usmle1':
+      return `You are an expert USMLE Step 1 question writer with deep knowledge of basic medical sciences.
+Generate a clinical vignette question in authentic USMLE format.
+
+CRITICAL RULES:
+1. Write 1-2 paragraphs of rich patient vignette (age, sex, presenting complaint, HPI, PMH, vitals, physical exam findings, lab values where relevant)
+2. Single best answer from 5 options (A-E)
+3. Distractors must represent common misconceptions or related but incorrect pathophysiology
+4. Rationale must explain the underlying pathophysiology of the correct answer
+5. Each wrong answer rationale must explain why that answer is incorrect (not just "wrong")
+6. Topics: ${topic}
+
+Difficulty: ${difficulty}
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{"scenario": "A 45-year-old woman presents with...", "question": "Which of the following best explains the mechanism of this patient's symptoms?", "options": {"A": "...", "B": "...", "C": "...", "D": "...", "E": "..."}, "correct": "B", "rationales": {"A": "Incorrect: ...", "B": "CORRECT: The pathophysiology here is...", "C": "Incorrect: ...", "D": "Incorrect: ...", "E": "Incorrect: ..."}, "concept": "Mechanism of disease", "system": "Cardiovascular"}`;
     case 'mckinsey':
       return `You are a McKinsey interviewer. Generate a business case interview opening.\nIndustry/Type: ${topic}\nReturn ONLY valid JSON (no markdown): {"case_title": "...", "industry": "...", "situation": "...", "opening_question": "...", "hints": ["..."], "framework_expected": "..."}`;
     case 'ib':
@@ -342,6 +378,35 @@ app.post('/api/create-order', async (req, res) => {
     res.json({ url: session.url });
   } catch (err) {
     res.status(500).json({ error: true, message: err.message });
+  }
+});
+
+// POST /api/book-teacher
+app.post('/api/book-teacher', (req, res) => {
+  try {
+    const { teacher, exam, name, email, duration, focus } = req.body;
+
+    db.exec(`CREATE TABLE IF NOT EXISTS bookings (
+      id TEXT PRIMARY KEY,
+      teacher TEXT,
+      exam TEXT,
+      student_name TEXT,
+      student_email TEXT,
+      duration TEXT,
+      focus TEXT,
+      status TEXT DEFAULT 'pending',
+      created_at TEXT DEFAULT (datetime('now'))
+    )`);
+
+    db.prepare(
+      `INSERT INTO bookings (id, teacher, exam, student_name, student_email, duration, focus) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(uuidv4(), teacher, exam, name, email, duration, focus);
+
+    console.log(`📅 New booking request: ${name} wants to book ${teacher} for ${exam}`);
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

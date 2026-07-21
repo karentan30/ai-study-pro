@@ -742,6 +742,55 @@
     }
     .toast.show { transform: translateX(-50%) translateY(0); }
 
+    /* ── TEACHER SECTION ─────────────────────────────────────── */
+    .teacher-section {
+      padding: 80px 24px;
+      max-width: 1000px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .teacher-section h2 {
+      font-size: 2rem;
+      color: white;
+      margin-bottom: 8px;
+    }
+    .teacher-section > p {
+      color: #64748B;
+      margin-bottom: 0;
+    }
+    .teacher-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 40px;
+      text-align: left;
+    }
+    .teacher-card {
+      background: #1E293B;
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid #334155;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .teacher-card:hover { border-color: #10B981; transform: translateY(-2px); }
+    .teacher-avatar { font-size: 2.5rem; margin-bottom: 12px; }
+    .teacher-info h3 { color: white; font-size: 1rem; margin-bottom: 4px; }
+    .teacher-info p { color: #64748B; font-size: 0.85rem; margin-bottom: 8px; }
+    .teacher-rate { color: #10B981; font-weight: 700; font-size: 1.1rem; }
+    .teacher-availability { color: #94A3B8; font-size: 0.8rem; margin: 4px 0 12px; }
+    .btn-book {
+      width: 100%;
+      padding: 10px;
+      background: transparent;
+      border: 1px solid #10B981;
+      border-radius: 8px;
+      color: #10B981;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .btn-book:hover { background: #10B981; color: #0F172A; }
+
     /* ── RESPONSIVE ──────────────────────────────────────── */
     @media (max-width: 640px) {
       header { padding: 1.25rem 1rem 1.75rem; }
@@ -886,6 +935,66 @@
     </div>
   </div>
 
+  <!-- Teacher Section -->
+  <section class="teacher-section">
+    <h2>Still Stuck? Book a Real Expert</h2>
+    <p>AI for daily practice. Human experts for breakthrough moments.</p>
+
+    <div class="teacher-grid">
+      <!-- NCLEX Teacher Card -->
+      <div class="teacher-card">
+        <div class="teacher-avatar">&#128105;&#8205;&#9877;&#65039;</div>
+        <div class="teacher-info">
+          <h3>Sarah M., RN</h3>
+          <p>NCLEX Coach &middot; Passed 2022 &middot; 200+ students helped</p>
+          <div class="teacher-rate">$45/hour</div>
+          <div class="teacher-availability">Next available: Tomorrow 3PM</div>
+        </div>
+        <button class="btn-book" onclick="showBookingModal('nclex', 'Sarah M.')">Book Session &rarr;</button>
+      </div>
+
+      <!-- McKinsey Teacher Card -->
+      <div class="teacher-card">
+        <div class="teacher-avatar">&#128188;</div>
+        <div class="teacher-info">
+          <h3>James L.</h3>
+          <p>Ex-McKinsey &middot; Case Interview Coach &middot; 3 years experience</p>
+          <div class="teacher-rate">$80/hour</div>
+          <div class="teacher-availability">Next available: This weekend</div>
+        </div>
+        <button class="btn-book" onclick="showBookingModal('mckinsey', 'James L.')">Book Session &rarr;</button>
+      </div>
+
+      <!-- 申论 Teacher Card -->
+      <div class="teacher-card">
+        <div class="teacher-avatar">&#128221;</div>
+        <div class="teacher-info">
+          <h3>&#29579;&#32769;&#24072;</h3>
+          <p>&#22269;&#32771;&#30003;&#35770;&#28385;&#20998; &middot; &#20844;&#21153;&#21592;5&#24180; &middot; &#25209;&#25913;200+&#31687;</p>
+          <div class="teacher-rate">&yen;199/&#23567;&#26102;</div>
+          <div class="teacher-availability">&#20170;&#26202;&#21487;&#32422;</div>
+        </div>
+        <button class="btn-book" onclick="showBookingModal('shenlun', '&#29579;&#32769;&#24072;')">&#39044;&#32422;&#19978;&#35838; &rarr;</button>
+      </div>
+
+      <!-- LSAT Teacher -->
+      <div class="teacher-card">
+        <div class="teacher-avatar">&#9878;&#65039;</div>
+        <div class="teacher-info">
+          <h3>Emily C., JD</h3>
+          <p>Yale Law &middot; LSAT 174 &middot; Logic Games specialist</p>
+          <div class="teacher-rate">$90/hour</div>
+          <div class="teacher-availability">Flexible schedule</div>
+        </div>
+        <button class="btn-book" onclick="showBookingModal('lsat', 'Emily C.')">Book Session &rarr;</button>
+      </div>
+    </div>
+
+    <p style="text-align:center;margin-top:24px;color:#64748B">
+      Are you an expert? <a href="#" style="color:#10B981">Apply to teach &rarr;</a>
+    </p>
+  </section>
+
   <!-- Pricing Section -->
   <div id="pricing">
     <div class="section-title">
@@ -969,6 +1078,27 @@
       </div>
     </div>
     <button class="modal-dismiss" onclick="closePaywall()">No thanks, keep limited access</button>
+  </div>
+</div>
+
+<!-- ── BOOKING MODAL ──────────────────────────────────────────── -->
+<div id="bookingModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#1E293B;border-radius:16px;padding:32px;max-width:440px;width:90%;position:relative">
+    <button onclick="document.getElementById('bookingModal').style.display='none'" style="position:absolute;top:16px;right:16px;background:none;border:none;color:#64748B;font-size:20px;cursor:pointer">&#10005;</button>
+    <h3 id="modalTitle" style="color:white;margin-bottom:8px">Book a Session</h3>
+    <p id="modalSubtitle" style="color:#64748B;margin-bottom:24px">Leave your contact info and we'll confirm within 2 hours</p>
+
+    <form id="bookingForm" onsubmit="submitBooking(event)">
+      <input type="text" placeholder="Your name" required style="width:100%;padding:12px;background:#0F172A;border:1px solid #334155;border-radius:8px;color:white;margin-bottom:12px;font-size:14px;box-sizing:border-box">
+      <input type="email" placeholder="Your email" required style="width:100%;padding:12px;background:#0F172A;border:1px solid #334155;border-radius:8px;color:white;margin-bottom:12px;font-size:14px;box-sizing:border-box">
+      <select style="width:100%;padding:12px;background:#0F172A;border:1px solid #334155;border-radius:8px;color:white;margin-bottom:12px;font-size:14px;box-sizing:border-box">
+        <option>30 minutes ($22.50 / &yen;99)</option>
+        <option>1 hour ($45 / &yen;199)</option>
+        <option>2 hours ($80 / &yen;360)</option>
+      </select>
+      <textarea placeholder="What do you want to focus on in this session?" style="width:100%;padding:12px;background:#0F172A;border:1px solid #334155;border-radius:8px;color:white;margin-bottom:16px;font-size:14px;height:80px;resize:none;box-sizing:border-box"></textarea>
+      <button type="submit" style="width:100%;padding:14px;background:#10B981;border:none;border-radius:8px;color:white;font-size:16px;font-weight:600;cursor:pointer">Request Booking &rarr;</button>
+    </form>
   </div>
 </div>
 
@@ -1792,6 +1922,54 @@ function esc(str) {
 document.getElementById('paywall-modal').addEventListener('click', function(e) {
   if (e.target === this) closePaywall();
 });
+
+// ── TEACHER BOOKING ────────────────────────────────────────────────
+var currentTeacher = '';
+var currentExam = '';
+
+function showBookingModal(exam, teacher) {
+  currentTeacher = teacher;
+  currentExam = exam;
+  document.getElementById('modalTitle').textContent = 'Book with ' + teacher;
+  var modal = document.getElementById('bookingModal');
+  modal.style.display = 'flex';
+}
+
+// Close booking modal on overlay click
+document.getElementById('bookingModal').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
+
+async function submitBooking(e) {
+  e.preventDefault();
+  var form = e.target;
+  var btn = form.querySelector('button[type=submit]');
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+
+  try {
+    await fetch('/api/book-teacher', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        teacher: currentTeacher,
+        exam: currentExam,
+        name: form.querySelector('input[type=text]').value,
+        email: form.querySelector('input[type=email]').value,
+        duration: form.querySelector('select').value,
+        focus: form.querySelector('textarea').value
+      })
+    });
+  } catch (err) {
+    // fail silently — still confirm to user
+  }
+
+  document.getElementById('bookingModal').style.display = 'none';
+  showToast('Booking request sent! We\'ll confirm within 2 hours via email.');
+  form.reset();
+  btn.textContent = 'Request Booking →';
+  btn.disabled = false;
+}
 </script>
 
 <script>
