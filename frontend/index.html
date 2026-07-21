@@ -1117,6 +1117,13 @@ var interviewHistory = [];
 var interviewExchanges = 0;
 var interviewActive = false;
 
+// Detect base path so API calls work whether hosted at /study or at root
+var API_BASE = (function() {
+  var p = location.pathname;
+  var m = p.match(/^(\/study)\/?/);
+  return m ? m[1] + '/api' : '/api';
+})();
+
 // ── INIT ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
   loadExams();
@@ -1125,7 +1132,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── LOAD EXAMS ─────────────────────────────────────────────────────
 function loadExams() {
-  fetch('/api/exams')
+  fetch(API_BASE + '/exams')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       allExams = data;
@@ -1139,7 +1146,7 @@ function loadExams() {
 
 // ── LOAD USAGE ─────────────────────────────────────────────────────
 function loadUsage() {
-  fetch('/api/usage')
+  fetch(API_BASE + '/usage')
     .then(function(r) { return r.json(); })
     .then(function(data) { usageData = data; renderUsage(); })
     .catch(function() {});
@@ -1312,7 +1319,7 @@ function generateQuestion() {
   selectedAnswer = null;
   answeredCorrect = null;
 
-  fetch('/api/generate-question', {
+  fetch(API_BASE + '/generate-question', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ exam_type: activeExam.id, topic: topic, difficulty: selectedDiff })
@@ -1604,7 +1611,7 @@ function startInterview() {
   var box = document.getElementById('chat-box');
   box.innerHTML = '<div class="chat-empty"><span class="spinner"></span>&nbsp; Starting interview&hellip;</div>';
 
-  fetch('/api/interview-start', {
+  fetch(API_BASE + '/interview-start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ exam_type: activeExam.id, topic: topic })
@@ -1656,7 +1663,7 @@ function sendChatMessage() {
   box.appendChild(typing);
   box.scrollTop = box.scrollHeight;
 
-  fetch('/api/interview-followup', {
+  fetch(API_BASE + '/interview-followup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -1732,7 +1739,7 @@ function endInterview() {
   box.appendChild(typing);
   box.scrollTop = box.scrollHeight;
 
-  fetch('/api/interview-followup', {
+  fetch(API_BASE + '/interview-followup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -1777,7 +1784,7 @@ function gradeEssay() {
 
   var prompt = document.getElementById('essay-prompt').value.trim();
 
-  fetch('/api/grade-essay', {
+  fetch(API_BASE + '/grade-essay', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ exam_type: activeExam.id, essay_text: essay, prompt_text: prompt })
@@ -1882,7 +1889,7 @@ function openPaywall()  { document.getElementById('paywall-modal').classList.add
 function closePaywall() { document.getElementById('paywall-modal').classList.remove('open'); }
 
 function checkout(plan) {
-  fetch('/api/create-order', {
+  fetch(API_BASE + '/create-order', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ plan: plan })
@@ -1948,7 +1955,7 @@ async function submitBooking(e) {
   btn.disabled = true;
 
   try {
-    await fetch('/api/book-teacher', {
+    await fetch(API_BASE + '/book-teacher', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

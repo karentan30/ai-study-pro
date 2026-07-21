@@ -4,7 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const Database = require('better-sqlite3');
 const { v4: uuidv4 } = require('uuid');
-const Anthropic = require('@anthropic-ai/sdk');
+const OpenAI = require('openai');
 
 const app = express();
 const PORT = process.env.PORT || 3019;
@@ -33,7 +33,10 @@ db.exec(`
   );
 `);
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const openai = new OpenAI({
+  baseURL: 'https://api.deepseek.com',
+  apiKey: process.env.DEEPSEEK_API_KEY,
+});
 
 // Exam metadata
 const EXAMS = [
@@ -46,6 +49,8 @@ const EXAMS = [
   { id: 'mckinsey', name: 'McKinsey/BCG Case', category: 'Career Interviews', icon: '💼', description: 'AI plays interviewer, real case simulation', topics: ['Market Sizing', 'Profitability', 'Market Entry', 'M&A', 'Operations'], questionTypes: ['interview'], supportsMockInterview: true, supportsEssayGrading: false },
   { id: 'ib', name: 'Investment Banking', category: 'Career Interviews', icon: '🏦', description: 'DCF, LBO, valuation Q&A', topics: ['DCF Valuation', 'LBO Model', 'Comparable Analysis', 'M&A Concepts', 'Technical Questions'], questionTypes: ['multiple_choice', 'open_answer'], supportsMockInterview: true, supportsEssayGrading: false },
   { id: 'coding', name: 'Google/Meta Coding', category: 'Career Interviews', icon: '💻', description: 'LeetCode-style with AI explanation', topics: ['Arrays', 'Strings', 'Trees', 'Dynamic Programming', 'System Design'], questionTypes: ['coding'], supportsMockInterview: true, supportsEssayGrading: false },
+  { id: 'google_behavioral', name: 'Google Behavioral', category: 'Career Interviews', icon: '🔍', description: 'Googleyness & Leadership — AI plays interviewer', topics: ['Leadership & Influence', 'Conflict Resolution', 'Ambiguity & Problem Solving', 'Collaboration', 'Innovation'], questionTypes: ['interview'], supportsMockInterview: true, supportsEssayGrading: false },
+  { id: 'amazon_lp', name: 'Amazon LP Interview', category: 'Career Interviews', icon: '📦', description: '16 Leadership Principles with STAR method coaching', topics: ['Customer Obsession', 'Ownership', 'Invent & Simplify', 'Bias for Action', 'Deliver Results', 'Earn Trust', 'Think Big'], questionTypes: ['interview'], supportsMockInterview: true, supportsEssayGrading: false },
   { id: 'civil', name: 'Civil Service Interview', category: 'Career Interviews', icon: '🏛️', description: 'Structured behavioral questions', topics: ['Situational Judgment', 'Behavioral', 'Policy Analysis'], questionTypes: ['open_answer'], supportsMockInterview: true, supportsEssayGrading: false },
   { id: 'shenlun', name: '申论批改', category: 'Chinese Exams', icon: '📝', description: 'Upload your essay, get scored in 60 seconds', topics: ['综合分析', '提出对策', '大作文'], questionTypes: ['essay'], supportsMockInterview: false, supportsEssayGrading: true },
   { id: 'xingce', name: '公务员行测', category: 'Chinese Exams', icon: '🧮', description: 'AI generates practice questions', topics: ['言语理解', '数量关系', '判断推理', '资料分析', '常识判断'], questionTypes: ['multiple_choice'], supportsMockInterview: false, supportsEssayGrading: false },
@@ -54,6 +59,10 @@ const EXAMS = [
   { id: 'jlpt', name: 'JLPT', category: 'Language Exams', icon: '🇯🇵', description: 'Japanese language proficiency', topics: ['Vocabulary', 'Grammar', 'Reading', 'Listening Comprehension'], questionTypes: ['multiple_choice'], supportsMockInterview: false, supportsEssayGrading: false },
   { id: 'ielts', name: 'IELTS/TOEFL', category: 'Language Exams', icon: '🌍', description: 'English proficiency', topics: ['Reading', 'Writing', 'Speaking', 'Listening'], questionTypes: ['multiple_choice', 'essay'], supportsMockInterview: false, supportsEssayGrading: true },
   { id: 'dele', name: 'DELE', category: 'Language Exams', icon: '🇪🇸', description: 'Spanish language certification', topics: ['Vocabulary', 'Reading', 'Writing', 'Oral Expression'], questionTypes: ['multiple_choice'], supportsMockInterview: false, supportsEssayGrading: false },
+  { id: 'ielts_speaking', name: 'IELTS Speaking', category: 'Language Exams', icon: '🎙️', description: 'IELTS Part 1/2/3 speaking practice with AI examiner', topics: ['Part 1: Personal Questions', 'Part 2: Long Turn (Cue Card)', 'Part 3: Discussion'], questionTypes: ['interview'], supportsMockInterview: true, supportsEssayGrading: false },
+  { id: 'toefl_speaking', name: 'TOEFL Speaking', category: 'Language Exams', icon: '🗣️', description: 'TOEFL integrated & independent speaking tasks', topics: ['Task 1: Independent', 'Task 2: Campus Situation', 'Task 3: Academic Reading', 'Task 4: Academic Lecture'], questionTypes: ['interview'], supportsMockInterview: true, supportsEssayGrading: false },
+  { id: 'ket_pet', name: 'KET/PET', category: 'Kids English', icon: '🌟', description: 'Cambridge A2/B1 for young learners', topics: ['Reading & Writing', 'Listening', 'Speaking', 'Vocabulary'], questionTypes: ['multiple_choice'], supportsMockInterview: true, supportsEssayGrading: false },
+  { id: 'kids_speaking', name: 'Kids English Speaking', category: 'Kids English', icon: '👧', description: 'Elementary school English speaking practice', topics: ['Self Introduction', 'Daily Life', 'School & Friends', 'Animals & Nature', 'Hobbies'], questionTypes: ['interview'], supportsMockInterview: true, supportsEssayGrading: false },
 ];
 
 function getClientIP(req) {
@@ -145,19 +154,37 @@ Return ONLY valid JSON (no markdown, no code blocks):
       return `You are an expert IELTS/TOEFL examiner. Generate a practice question.\nSkill: ${topic}, Difficulty: ${difficulty}\nReturn ONLY valid JSON (no markdown): {"question": "...", "question_type": "multiple_choice", "options": {"A":"...","B":"...","C":"...","D":"..."}, "correct_answer": "A", "explanation": "...", "vocabulary": ["key words"]}`;
     case 'dele':
       return `You are an expert DELE examiner. Generate a practice question.\nSkill: ${topic}, Difficulty: ${difficulty}\nReturn ONLY valid JSON (no markdown): {"question": "...", "question_type": "multiple_choice", "options": {"A":"...","B":"...","C":"...","D":"..."}, "correct_answer": "A", "explanation": "...", "vocabulary": ["key words"]}`;
+    case 'ielts_speaking':
+      return `You are an experienced IELTS examiner conducting a speaking practice session. Topic: ${topic}.
+Generate a realistic IELTS speaking prompt with model answer structure.
+Return ONLY valid JSON (no markdown): {"part": "Part 2", "prompt": "Describe a place you like to visit. You should say: where it is / what it looks like / what you do there / and explain why you like it.", "preparation_time": "1 minute", "speaking_time": "2 minutes", "sample_answer_points": ["Point 1...", "Point 2...", "Point 3..."], "useful_phrases": ["Firstly...", "What I particularly like is..."], "band_7_tips": "Use complex sentences and varied vocabulary..."}`;
+    case 'toefl_speaking':
+      return `You are a TOEFL speaking coach. Topic: ${topic}.
+Generate a TOEFL speaking task with full instructions.
+Return ONLY valid JSON (no markdown): {"task_number": 1, "task_type": "Independent", "question": "Some people prefer to live in cities. Others prefer to live in rural areas. Which do you prefer and why?", "preparation_time": "15 seconds", "response_time": "45 seconds", "scoring_criteria": ["Delivery", "Language Use", "Topic Development"], "sample_response_outline": ["Opening statement...", "Reason 1 with example...", "Reason 2 with example...", "Conclusion..."], "key_phrases": ["In my opinion...", "For instance..."]}`;
+    case 'ket_pet':
+      return `You are a Cambridge KET/PET examiner. Generate a practice question for ${topic}, difficulty ${difficulty}.
+Keep language age-appropriate for young learners (10-16 years).
+Return ONLY valid JSON (no markdown): {"question": "...", "question_type": "multiple_choice", "options": {"A":"...","B":"...","C":"...","D":"..."}, "correct_answer": "A", "explanation": "...", "vocabulary": ["key words"], "tip": "Remember to..."}`;
+    case 'kids_speaking':
+      return `You are a friendly English teacher for elementary school children (ages 6-12). Topic: ${topic}.
+Generate a fun, encouraging speaking practice question. Use simple vocabulary.
+Return ONLY valid JSON (no markdown): {"question": "Can you tell me about your favorite animal?", "example_answer": "My favorite animal is a dog because...", "vocabulary_help": ["favorite - 最喜欢的", "because - 因为"], "follow_up_questions": ["What does it eat?", "Where does it live?"], "encouragement": "Great job! You're doing amazing!", "difficulty": "${difficulty}"}`;
     default:
       return `You are an expert exam tutor. Generate a practice question for ${exam_type}.\nTopic: ${topic}, Difficulty: ${difficulty}\nReturn ONLY valid JSON (no markdown): {"question": "...", "options": {"A":"...","B":"...","C":"...","D":"..."}, "correct_answer": "A", "explanation": "..."}`;
   }
 }
 
-async function callClaude(systemPrompt, userMessage) {
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5',
+async function callAI(systemPrompt, userMessage) {
+  const response = await openai.chat.completions.create({
+    model: 'deepseek-chat',
     max_tokens: 2048,
-    messages: [{ role: 'user', content: userMessage || 'Generate the question now.' }],
-    system: systemPrompt,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage || 'Generate the question now.' },
+    ],
   });
-  return response.content[0].text;
+  return response.choices[0].message.content;
 }
 
 function parseJSON(text) {
@@ -194,9 +221,9 @@ app.post('/api/generate-question', async (req, res) => {
 
   let text;
   try {
-    text = await callClaude(systemPrompt);
+    text = await callAI(systemPrompt);
   } catch (err) {
-    return res.status(500).json({ error: true, message: 'Claude API error: ' + err.message });
+    return res.status(500).json({ error: true, message: 'AI API error: ' + err.message });
   }
 
   let parsed;
@@ -205,7 +232,7 @@ app.post('/api/generate-question', async (req, res) => {
   } catch (e) {
     // Retry once
     try {
-      text = await callClaude(systemPrompt);
+      text = await callAI(systemPrompt);
       parsed = parseJSON(text);
     } catch (e2) {
       return res.status(500).json({ error: true, message: 'Failed to parse AI response. Please try again.' });
@@ -244,15 +271,14 @@ ${exam_type === 'mianshi' ? 'Respond entirely in Chinese as a 考官.' : ''}`;
   ];
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+    const response = await openai.chat.completions.create({
+      model: 'deepseek-chat',
       max_tokens: 512,
-      system: systemPrompt,
-      messages,
+      messages: [{ role: 'system', content: systemPrompt }, ...messages],
     });
-    res.json({ reply: response.content[0].text });
+    res.json({ reply: response.choices[0].message.content });
   } catch (err) {
-    res.status(500).json({ error: true, message: 'Claude API error: ' + err.message });
+    res.status(500).json({ error: true, message: 'AI API error: ' + err.message });
   }
 });
 
@@ -265,26 +291,34 @@ app.post('/api/interview-start', async (req, res) => {
   }
 
   const prompts = {
-    mckinsey: `You are a McKinsey senior interviewer. Start a case interview with topic: ${topic}. Present the case scenario and opening question. Keep it under 150 words. Plain text, not JSON.`,
-    ib: `You are a VP at Goldman Sachs conducting a technical interview. Topic: ${topic}. Ask your opening question. Keep it under 100 words. Plain text, not JSON.`,
-    coding: `You are a Google L5 engineer conducting a coding interview. Topic: ${topic}. Present the coding problem clearly. Keep it under 200 words. Plain text, not JSON.`,
-    civil: `You are a civil service interview panel member. Topic: ${topic}. Open the interview with your first question. Keep it under 100 words. Plain text, not JSON.`,
-    mianshi: `你是公务员面试考官，题型：${topic}。请开始面试，提出第一个问题。不超过150字。纯文字，不要JSON。`,
+    mckinsey: `You are Sarah, a McKinsey Associate Partner. Introduce yourself warmly (2 sentences), explain this is a 30-min case interview, then naturally present the case about ${topic}. End with "Where would you like to start?" Under 180 words. Plain text, not JSON.`,
+    ib: `You are Marcus, a VP at Goldman Sachs. Briefly introduce yourself and the role you're hiring for. Say this will cover ${topic}. First ask "tell me briefly about your finance background" before diving in. Under 120 words. Plain text, not JSON.`,
+    coding: `You are Alex, a friendly Google L5 Software Engineer conducting a 45-minute technical interview. Start by warmly introducing yourself and making the candidate feel comfortable. Then naturally transition into presenting one coding problem related to ${topic} — describe it conversationally as if explaining it in person, not as a formal question. End by asking "Do you have any clarifying questions before you start?" Keep it under 180 words. Plain text, not JSON.`,
+    ielts_speaking: `You are a friendly IELTS examiner. Introduce yourself briefly, explain the 3-part structure, then start with easy warm-up questions for ${topic}. Under 150 words. Plain text, not JSON.`,
+    toefl_speaking: `You are a TOEFL speaking coach. Welcome the student, explain the task type for ${topic}, give timing info, then present the question clearly. Under 150 words. Plain text, not JSON.`,
+    ket_pet: `You are a cheerful Cambridge examiner for young learners. Say hello and make the student feel welcome. Start with an easy question about ${topic} to warm up. Under 100 words. Plain text, not JSON.`,
+    kids_speaking: `You are a super friendly English teacher for kids! 👋 Say hi and give a big welcome! Start a fun chat about ${topic} with one simple question. Use emojis. Under 80 words. Plain text, not JSON.`,
+    google_behavioral: `You are Jordan, a Google Engineering Manager. Introduce yourself, explain you'll be asking about past experiences using the STAR method, then ask your first behavioral question about ${topic}. Under 150 words. Plain text, not JSON.`,
+    amazon_lp: `You are Taylor, an Amazon Senior Manager. Introduce yourself and the role, briefly explain STAR format, then ask your first Leadership Principle question about "${topic}". Under 150 words. Plain text, not JSON.`,
+    civil: `You are the chair of a civil service interview panel. Welcome the candidate, introduce the panel briefly, explain the competency-based format on ${topic}, then ask your first question. Under 130 words. Plain text, not JSON.`,
+    mianshi: `你是公务员面试主考官。先欢迎考生，简短介绍今天的面试形式（结构化面试，题目类型：${topic}），让考生放松，然后请考生就第一道题作答。不超过150字。纯文字，不要JSON。`,
   };
 
   const systemPrompt = prompts[exam_type] || `You are an interviewer for ${exam_type}. Start the interview for topic: ${topic}. Plain text, not JSON.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+    const response = await openai.chat.completions.create({
+      model: 'deepseek-chat',
       max_tokens: 400,
-      messages: [{ role: 'user', content: 'Begin the interview now.' }],
-      system: systemPrompt,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: 'Begin the interview now.' },
+      ],
     });
     incrementUsage(ip);
-    res.json({ reply: response.content[0].text });
+    res.json({ reply: response.choices[0].message.content });
   } catch (err) {
-    res.status(500).json({ error: true, message: 'Claude API error: ' + err.message });
+    res.status(500).json({ error: true, message: 'AI API error: ' + err.message });
   }
 });
 
@@ -322,15 +356,17 @@ Return ONLY JSON (no markdown): {"score": 75, "max_score": 100, "strengths": [".
 
   let text;
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+    const response = await openai.chat.completions.create({
+      model: 'deepseek-chat',
       max_tokens: 2048,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: `Essay to grade:\n\n${essay_text}` }],
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Essay to grade:\n\n${essay_text}` },
+      ],
     });
-    text = response.content[0].text;
+    text = response.choices[0].message.content;
   } catch (err) {
-    return res.status(500).json({ error: true, message: 'Claude API error: ' + err.message });
+    return res.status(500).json({ error: true, message: 'AI API error: ' + err.message });
   }
 
   let parsed;
