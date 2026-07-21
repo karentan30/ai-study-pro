@@ -31,6 +31,13 @@ db.exec(`
     amount INTEGER,
     created_at TEXT DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS subscribers (
+    id TEXT PRIMARY KEY,
+    stripe_session_id TEXT UNIQUE,
+    email TEXT,
+    plan TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 const openai = new OpenAI({
@@ -245,6 +252,12 @@ app.post('/api/generate-question', async (req, res) => {
 });
 
 app.post('/api/interview-followup', async (req, res) => {
+  const ip = getClientIP(req);
+  const used = getUsageCount(ip);
+  if (used >= 5) {
+    return res.status(429).json({ error: 'rate_limit', message: 'Daily limit reached. Upgrade to continue.' });
+  }
+
   const { exam_type, conversation_history = [], user_response } = req.body;
   if (!exam_type || !user_response) {
     return res.status(400).json({ error: true, message: 'exam_type and user_response are required' });
@@ -389,7 +402,7 @@ app.post('/api/create-order', async (req, res) => {
   }
 
   const stripe = require('stripe')(stripeKey);
-  const prices = { pro: 1999, premium: 3999 };
+  const prices = { pro: 1999, elite: 3999, premium: 3999 };
   const amount = prices[plan] || 1999;
 
   try {
@@ -400,13 +413,13 @@ app.post('/api/create-order', async (req, res) => {
       line_items: [{
         price_data: {
           currency: 'usd',
-          product_data: { name: `AI Study Pro ${plan === 'premium' ? 'Premium' : 'Pro'}` },
+          product_data: { name: `AI Study Pro ${plan === 'premium' ? 'Premium' : plan === 'elite' ? 'Elite' : 'Pro'}` },
           unit_amount: amount,
           recurring: { interval: 'month' },
         },
         quantity: 1,
       }],
-      success_url: `${process.env.BASE_URL || 'http://localhost:3019'}?success=1`,
+      success_url: `${process.env.BASE_URL || 'http://localhost:3019'}?success={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.BASE_URL || 'http://localhost:3019'}?cancelled=1`,
     });
 
@@ -414,6 +427,34 @@ app.post('/api/create-order', async (req, res) => {
     res.json({ url: session.url });
   } catch (err) {
     res.status(500).json({ error: true, message: err.message });
+  }
+});
+
+// POST /api/verify-session — called after Stripe redirect to confirm payment
+app.post('/api/verify-session', async (req, res) => {
+  const { session_id } = req.body;
+  if (!session_id) return res.status(400).json({ error: 'session_id required' });
+
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey || stripeKey === 'sk_live_...') {
+    return res.status(503).json({ error: 'Stripe not configured' });
+  }
+
+  try {
+    const stripe = require('stripe')(stripeKey);
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    if (session.payment_status !== 'paid' && session.status !== 'complete') {
+      return res.status(402).json({ error: 'Payment not completed' });
+    }
+
+    db.prepare(`
+      INSERT OR IGNORE INTO subscribers (id, stripe_session_id, email, plan)
+      VALUES (?, ?, ?, ?)
+    `).run(uuidv4(), session_id, session.customer_email || '', session.metadata?.plan || 'pro');
+
+    res.json({ ok: true, email: session.customer_email });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

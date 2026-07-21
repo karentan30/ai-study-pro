@@ -157,6 +157,7 @@
     .cat-orange { background: var(--orange); }
     .cat-red    { background: var(--red); }
     .cat-green  { background: var(--green); }
+    .cat-teal   { background: #0891B2; }
     .cat-gray   { background: var(--muted); }
 
     /* ── EXAM GRID ───────────────────────────────────────── */
@@ -1126,6 +1127,32 @@ var API_BASE = (function() {
 
 // ── INIT ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
+  // Handle Stripe redirect callbacks
+  var params = new URLSearchParams(location.search);
+  var successSessionId = params.get('success');
+  if (successSessionId && successSessionId !== '1') {
+    // Verify the Stripe session before granting access
+    fetch(API_BASE + '/verify-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: successSessionId })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.ok) {
+        localStorage.setItem('pro_session_id', successSessionId);
+        showToast('Payment confirmed! Pro access unlocked.');
+        usageData = { used: 0, limit: 999, remaining: 999 };
+        renderUsage();
+      } else {
+        showToast('Could not verify payment — contact support.');
+      }
+    }).catch(function() {
+      showToast('Could not verify payment — contact support.');
+    });
+    history.replaceState({}, '', '/');
+  } else if (params.get('cancelled')) {
+    showToast('Payment cancelled. You can upgrade anytime.');
+    history.replaceState({}, '', '/');
+  }
   loadExams();
   loadUsage();
 });
@@ -1177,6 +1204,7 @@ var CAT_META = {
   'Career Interviews':     { color: 'cat-orange',  label: '&#128992; Career Interviews' },
   'Chinese Exams':         { color: 'cat-red',     label: '&#128997; Chinese Exams' },
   'Language Exams':        { color: 'cat-green',   label: '&#128994; Language' },
+  'Kids English':          { color: 'cat-teal',    label: '&#127775; Kids English' },
   'Legal':                 { color: 'cat-gray',    label: '&#9878;&#65039; Legal' },
 };
 
@@ -1899,8 +1927,8 @@ function checkout(plan) {
     if (data.url && data.url !== '#') {
       window.location.href = data.url;
     } else {
-      showToast(data.message || 'Stripe not configured yet');
       closePaywall();
+      showToast('Pro subscriptions launching soon — email us at hello@aiproacademy.com to get early access!');
     }
   })
   .catch(function() { showToast('Could not open checkout'); });
@@ -1955,7 +1983,7 @@ async function submitBooking(e) {
   btn.disabled = true;
 
   try {
-    await fetch(API_BASE + '/book-teacher', {
+    var resp = await fetch(API_BASE + '/book-teacher', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1967,13 +1995,14 @@ async function submitBooking(e) {
         focus: form.querySelector('textarea').value
       })
     });
+    if (!resp.ok) throw new Error('Server error');
+    document.getElementById('bookingModal').style.display = 'none';
+    showToast('Booking request received! We\'ll be in touch soon to confirm your session.');
+    form.reset();
   } catch (err) {
-    // fail silently — still confirm to user
+    showToast('Booking failed — please try again or email us directly.');
   }
 
-  document.getElementById('bookingModal').style.display = 'none';
-  showToast('Booking request sent! We\'ll confirm within 2 hours via email.');
-  form.reset();
   btn.textContent = 'Request Booking →';
   btn.disabled = false;
 }
